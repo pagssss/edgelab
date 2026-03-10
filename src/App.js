@@ -239,7 +239,7 @@ function KellyCalculator({ bankroll }) {
 }
 
 function BankrollManager({ bankroll, setBankroll }) {
-  const [history] = useState([
+  // const [history] = useState([
     { month: "Jan", value: 300 },
     { month: "Fév", value: 340 },
     { month: "Mar", value: 320 },
