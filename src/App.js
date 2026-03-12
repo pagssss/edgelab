@@ -174,6 +174,91 @@ function MatchCard({ match, bankroll }) {
             </div>
           )}
 
+          {/* Stats NBA réelles */}
+          {match.nbaStats?.available && (
+            <div style={{ marginTop: "10px" }}>
+
+              {/* Stats avancées */}
+              <div style={{ background: "#00aaff08", border: "1px solid #00aaff20", borderRadius: "8px", padding: "12px", marginBottom: "8px" }}>
+                <div style={{ fontSize: "10px", color: "#00aaff", fontFamily: "monospace", fontWeight: 700, marginBottom: "10px", letterSpacing: "1px" }}>
+                  🏀 STATS AVANCÉES NBA (/{match.nbaStats.homeTeam.gamesAnalyzed} matchs)
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
+                  {[
+                    { label: "🏠 " + match.nbaStats.homeTeam.fullName, stats: match.nbaStats.homeTeam },
+                    { label: "✈️ " + match.nbaStats.awayTeam.fullName, stats: match.nbaStats.awayTeam },
+                  ].map((item, i) => (
+                    <div key={i} style={{ background: "#060613", borderRadius: "6px", padding: "10px", border: "1px solid #1a1a2e" }}>
+                      <div style={{ fontSize: "9px", color: "#555", fontFamily: "monospace", marginBottom: "6px" }}>{item.label}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px", marginBottom: "6px" }}>
+                        {[
+                          { l: "OFF RTG", v: item.stats.offRating, c: item.stats.offRating >= 112 ? "#00ff88" : item.stats.offRating >= 108 ? "#ffaa00" : "#ff4466" },
+                          { l: "DEF RTG", v: item.stats.defRating, c: item.stats.defRating <= 108 ? "#00ff88" : item.stats.defRating <= 113 ? "#ffaa00" : "#ff4466" },
+                          { l: "NET RTG", v: (item.stats.netRating > 0 ? "+" : "") + item.stats.netRating, c: item.stats.netRating >= 3 ? "#00ff88" : item.stats.netRating >= -2 ? "#ffaa00" : "#ff4466" },
+                          { l: "PACE", v: item.stats.pace, c: "#888" },
+                        ].map((s, j) => (
+                          <div key={j}>
+                            <div style={{ fontSize: "8px", color: "#444", fontFamily: "monospace" }}>{s.l}</div>
+                            <div style={{ fontSize: "13px", fontFamily: "monospace", fontWeight: 700, color: s.c }}>{s.v}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: "11px", fontFamily: "monospace", marginBottom: "4px" }}>
+                        {item.stats.form?.map((r, j) => (
+                          <span key={j} style={{ color: r === "W" ? "#00ff88" : "#ff4466", marginRight: "3px", fontWeight: 700 }}>{r}</span>
+                        ))}
+                        <span style={{ fontSize: "9px", color: "#444", marginLeft: "4px" }}>{item.stats.winRate}% wins</span>
+                      </div>
+                      {item.stats.backToBack && (
+                        <div style={{ fontSize: "9px", color: "#ff4466", fontFamily: "monospace", background: "#ff446610", padding: "2px 6px", borderRadius: "3px", display: "inline-block" }}>
+                          ⚠️ BACK-TO-BACK
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Résumé */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px" }}>
+                  {[
+                    { l: "ÉCART NET RTG", v: (match.nbaStats.netDiff > 0 ? "+" : "") + match.nbaStats.netDiff, c: Math.abs(match.nbaStats.netDiff) >= 4 ? "#00ff88" : "#ffaa00" },
+                    { l: "TOTAL PROJETÉ", v: match.nbaStats.projectedTotal + " pts", c: "#00aaff" },
+                    { l: "PACE MOYEN", v: match.nbaStats.avgPace, c: "#888" },
+                  ].map((item, i) => (
+                    <div key={i} style={{ background: "#060613", borderRadius: "6px", padding: "8px", textAlign: "center", border: "1px solid #1a1a2e" }}>
+                      <div style={{ fontSize: "8px", color: "#444", fontFamily: "monospace", marginBottom: "2px" }}>{item.l}</div>
+                      <div style={{ fontSize: "14px", fontFamily: "monospace", fontWeight: 700, color: item.c }}>{item.v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recommandations de paris */}
+              {match.nbaStats.bets?.length > 0 && (
+                <div style={{ background: "#00ff8806", border: "1px solid #00ff8818", borderRadius: "8px", padding: "12px" }}>
+                  <div style={{ fontSize: "10px", color: "#00ff88", fontFamily: "monospace", fontWeight: 700, marginBottom: "8px", letterSpacing: "1px" }}>
+                    🎯 PARIS RECOMMANDÉS
+                  </div>
+                  {match.nbaStats.bets.map((bet, i) => (
+                    <div key={i} style={{ background: "#060613", borderRadius: "6px", padding: "10px", border: "1px solid #1a1a2e", marginBottom: "6px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ fontSize: "14px" }}>{bet.emoji}</span>
+                          <span style={{ fontFamily: "monospace", fontSize: "12px", fontWeight: 700, color: bet.color }}>{bet.label}</span>
+                          {bet.odds && <span style={{ fontFamily: "monospace", fontSize: "11px", color: "#ffaa00" }}>@ {bet.odds}</span>}
+                        </div>
+                        <div style={{ background: bet.color + "20", border: "1px solid " + bet.color + "40", borderRadius: "4px", padding: "2px 8px", fontFamily: "monospace", fontSize: "10px", color: bet.color }}>
+                          {bet.confidence}% confiance
+                        </div>
+                      </div>
+                      <div style={{ fontSize: "10px", color: "#555", fontFamily: "monospace" }}>{bet.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {match.homeValue <= 0 && (
             <div style={{ background: "#ff446608", border: "1px solid #ff446620", borderRadius: "8px", padding: "10px", fontFamily: "monospace", fontSize: "11px", color: "#ff4466" }}>
               ⛔ Pas de value détectée — ne pas parier sur ce match

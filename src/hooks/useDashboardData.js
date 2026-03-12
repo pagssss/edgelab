@@ -5,9 +5,9 @@ import {
   oddsToProb,
   calculateValue,
   calculateKellyStake,
-  estimateProbFromStats,
   calculateGlobalScore,
-} from '../utils/api'; // eslint-disable-line
+} from '../utils/api';
+import { fetchNBAMatchStats } from '../utils/nba';
 
 export const useDashboardData = (bankroll) => {
   const [matches, setMatches] = useState([]);
@@ -15,61 +15,64 @@ export const useDashboardData = (bankroll) => {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const processOddsData = useCallback((oddsData) => {
-    return oddsData.map((match) => {
-      const bookmaker = match.bookmakers?.[0];
-      const h2hMarket = bookmaker?.markets?.find(m => m.key === 'h2h');
-      const outcomes = h2hMarket?.outcomes || [];
+  const processMatch = useCallback(async (match) => {
+    const bookmaker = match.bookmakers?.[0];
+    const h2hMarket = bookmaker?.markets?.find(m => m.key === 'h2h');
+    const outcomes = h2hMarket?.outcomes || [];
 
-      const homeOdds = outcomes.find(o => o.name === match.home_team)?.price || null;
-      const awayOdds = outcomes.find(o => o.name === match.away_team)?.price || null;
-      const drawOdds = outcomes.find(o => o.name === 'Draw')?.price || null;
+    const homeOdds = outcomes.find(o => o.name === match.home_team)?.price || null;
+    const awayOdds = outcomes.find(o => o.name === match.away_team)?.price || null;
+    const drawOdds = outcomes.find(o => o.name === 'Draw')?.price || null;
 
-      const homeImplied = oddsToProb(homeOdds);
-      const awayImplied = oddsToProb(awayOdds);
+    const homeImplied = oddsToProb(homeOdds);
+    const awayImplied = oddsToProb(awayOdds);
 
-      const mockStats = {
-        formScore: Math.random() * 0.4 + 0.3,
-        xgAdvantage: (Math.random() - 0.5) * 2,
-        h2hScore: Math.random() * 0.4 + 0.3,
-        injuryImpact: Math.random() * 0.3,
-        fatigue: Math.random() * 0.2,
-      };
+    let nbaStats = null;
+    let confidence = 0.5;
+    let homeEstimated = homeImplied;
+    let formScore = 0.5;
 
-      const homeEstimated = estimateProbFromStats(homeImplied, mockStats);
-      const homeValue = homeOdds ? calculateValue(homeEstimated, homeOdds) : 0;
-      const homeKelly = homeOdds ? calculateKellyStake(homeEstimated, homeOdds, bankroll) : null;
+    // Brancher les vraies stats NBA
+    if (match.sportType === 'basketball') {
+      nbaStats = await fetchNBAMatchStats(match.home_team, match.away_team);
+      if (nbaStats?.available) {
+        formScore = nbaStats.homeTeam.form / 100;
+        const fatigueAdj = (nbaStats.homeTeam.backToBack ? -0.05 : 0) - (nbaStats.awayTeam.backToBack ? -0.05 : 0);
+        homeEstimated = Math.min(0.9, Math.max(0.1, homeImplied + nbaStats.formAdvantage * 0.15 + fatigueAdj));
+        confidence = nbaStats.confidence;
+      }
+    } else {
+      // Stats simulées pour foot (en attendant API-Sports)
+      formScore = Math.random() * 0.4 + 0.3;
+      const xgAdv = (Math.random() - 0.5) * 2;
+      homeEstimated = Math.min(0.9, Math.max(0.1, homeImplied + xgAdv * 0.03));
+      confidence = Math.min(0.8, Math.max(0.3, formScore * 0.6 + 0.2));
+    }
 
-      const confidence = Math.min(1, Math.max(0,
-        mockStats.formScore * 0.35 +
-        (1 - mockStats.injuryImpact) * 0.25 +
-        mockStats.h2hScore * 0.25 +
-        (1 - mockStats.fatigue) * 0.15
-      ));
+    const homeValue = homeOdds ? calculateValue(homeEstimated, homeOdds) : 0;
+    const homeKelly = homeOdds ? calculateKellyStake(homeEstimated, homeOdds, bankroll) : null;
+    const globalScore = calculateGlobalScore(homeValue, confidence);
 
-      const globalScore = calculateGlobalScore(homeValue, confidence);
-
-      return {
-        id: match.id,
-        sport: match.sportType || 'football',
-        league: match.sportLabel || 'Football',
-        homeTeam: match.home_team,
-        awayTeam: match.away_team,
-        commenceTime: match.commence_time,
-        homeOdds,
-        awayOdds,
-        drawOdds,
-        homeImplied: Math.round(homeImplied * 100),
-        awayImplied: Math.round(awayImplied * 100),
-        homeEstimated: Math.round(homeEstimated * 100),
-        homeValue: Math.round(homeValue * 100) / 100,
-        homeKelly,
-        confidence: Math.round(confidence * 100) / 100,
-        globalScore,
-        stats: mockStats,
-        bookmaker: bookmaker?.title || 'Bookmaker',
-      };
-    });
+    return {
+      id: match.id,
+      sport: match.sportType || 'football',
+      league: match.sportLabel || 'Football',
+      homeTeam: match.home_team,
+      awayTeam: match.away_team,
+      commenceTime: match.commence_time,
+      homeOdds,
+      awayOdds,
+      drawOdds,
+      homeImplied: Math.round(homeImplied * 100),
+      awayImplied: Math.round(awayImplied * 100),
+      homeEstimated: Math.round(homeEstimated * 100),
+      homeValue: Math.round(homeValue * 100) / 100,
+      homeKelly,
+      confidence: Math.round(confidence * 100) / 100,
+      globalScore,
+      nbaStats,
+      bookmaker: bookmaker?.title || 'Bookmaker',
+    };
   }, [bankroll]);
 
   const loadData = useCallback(async () => {
@@ -77,9 +80,18 @@ export const useDashboardData = (bankroll) => {
     setError(null);
     try {
       const oddsData = await fetchAllSportsOdds();
-      const processedMatches = processOddsData(oddsData)
-        .sort((a, b) => b.globalScore - a.globalScore);
-      setMatches(processedMatches);
+
+      // Traiter tous les matchs (NBA en parallèle par batch de 5)
+      const processed = [];
+      const batchSize = 5;
+      for (let i = 0; i < oddsData.length; i += batchSize) {
+        const batch = oddsData.slice(i, i + batchSize);
+        const results = await Promise.all(batch.map(m => processMatch(m)));
+        processed.push(...results);
+      }
+
+      const sorted = processed.sort((a, b) => b.globalScore - a.globalScore);
+      setMatches(sorted);
       setLastUpdated(new Date());
     } catch (err) {
       setError('Erreur de chargement. Vérifie ta connexion.');
@@ -87,7 +99,7 @@ export const useDashboardData = (bankroll) => {
     } finally {
       setLoading(false);
     }
-  }, [processOddsData]);
+  }, [processMatch]);
 
   useEffect(() => {
     loadData();
