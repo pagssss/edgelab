@@ -33,6 +33,7 @@ export const fetchAllSportsOdds = async () => {
   // FOOTBALL : Top 5 ligues européennes
   // BASKET : NBA + Euroleague + Betclic Elite
   // TENNIS : Tous grands tournois ATP/WTA 250+
+  // Uniquement les ligues disponibles sur le plan gratuit
   const sports = [
     { key: 'soccer_france_ligue_one', label: 'Ligue 1', sport: 'football' },
     { key: 'soccer_england_premier_league', label: 'Premier League', sport: 'football' },
@@ -40,16 +41,6 @@ export const fetchAllSportsOdds = async () => {
     { key: 'soccer_italy_serie_a', label: 'Serie A', sport: 'football' },
     { key: 'soccer_germany_bundesliga', label: 'Bundesliga', sport: 'football' },
     { key: 'basketball_nba', label: 'NBA', sport: 'basketball' },
-    { key: 'basketball_euroleague', label: 'Euroleague', sport: 'basketball' },
-    { key: 'basketball_france_pro_a', label: 'Betclic Elite', sport: 'basketball' },
-    { key: 'tennis_atp_wimbledon', label: 'ATP Wimbledon', sport: 'tennis' },
-    { key: 'tennis_atp_us_open', label: 'ATP US Open', sport: 'tennis' },
-    { key: 'tennis_atp_french_open', label: 'ATP Roland Garros', sport: 'tennis' },
-    { key: 'tennis_atp_aus_open', label: 'ATP Open Australie', sport: 'tennis' },
-    { key: 'tennis_wta_wimbledon', label: 'WTA Wimbledon', sport: 'tennis' },
-    { key: 'tennis_wta_us_open', label: 'WTA US Open', sport: 'tennis' },
-    { key: 'tennis_wta_french_open', label: 'WTA Roland Garros', sport: 'tennis' },
-    { key: 'tennis_atp_double', label: 'ATP Masters', sport: 'tennis' },
   ];
 
   const results = [];
@@ -58,12 +49,15 @@ export const fetchAllSportsOdds = async () => {
       const res = await fetch(
         `https://api.the-odds-api.com/v4/sports/${s.key}/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal`
       );
+      if (!res.ok) continue;
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         results.push(...data.map(m => ({ ...m, sportLabel: s.label, sportType: s.sport })));
       }
+      // Petit délai entre chaque appel pour éviter le rate limit
+      await new Promise(r => setTimeout(r, 200));
     } catch (err) {
-      // Ligue non disponible sur ce plan, on continue
+      // Ligue non disponible, on continue
     }
   }
   return results;
