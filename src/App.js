@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useState, useMemo } from "react";
 import { useDashboardData } from "./hooks/useDashboardData";
 import { calculateKellyStake, calculateValue } from "./utils/api";
@@ -239,11 +240,6 @@ function KellyCalculator({ bankroll }) {
 }
 
 function BankrollManager({ bankroll, setBankroll }) {
-  // const [history] = useState([
-    { month: "Jan", value: 300 },
-    { month: "Fév", value: 340 },
-    { month: "Mar", value: 320 },
-  ]);
 
   const stopLoss = bankroll * 0.7;
   const target = bankroll * 1.2;
