@@ -4,13 +4,22 @@ const headers = { Authorization: BALLDONTLIE_KEY };
 
 // Cache global pour éviter les appels répétés
 const cache = {};
-const cachedFetch = async (url) => {
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const cachedFetch = async (url, retries = 3) => {
   if (cache[url]) return cache[url];
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  cache[url] = data;
-  return data;
+  for (let i = 0; i < retries; i++) {
+    const res = await fetch(url, { headers });
+    if (res.status === 429) {
+      await sleep(1000 * (i + 1)); // attendre 1s, 2s, 3s
+      continue;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    cache[url] = data;
+    return data;
+  }
+  throw new Error('Rate limited');
 };
 
 // ============================================
@@ -39,7 +48,7 @@ export const findTeamByName = (teams, name) => {
 const fetchTeamGames = async (teamId, season = 2024) => {
   try {
     const data = await cachedFetch(
-      `https://api.balldontlie.io/v1/games?team_ids[]=${teamId}&seasons[]=${season}&per_page=10&sort=date&order=desc`
+      `https://api.balldontlie.io/v1/games?team_ids[]=${teamId}&seasons[]=${season}&per_page=5&sort=date&order=desc`
     );
     return data.data || [];
   } catch { return []; }
@@ -214,7 +223,10 @@ export const fetchNBAMatchStats = async (homeTeamName, awayTeamName, homeOdds, a
     const homeTeam = findTeamByName(teams, homeTeamName);
     const awayTeam = findTeamByName(teams, awayTeamName);
 
-    if (!homeTeam || !awayTeam) return { available: false };
+    if (!homeTeam || !awayTeam) {
+      console.log('NBA team not found:', homeTeamName, awayTeamName, 'teams:', teams.map(t => t.full_name).slice(0,5));
+      return { available: false };
+    }
 
     const [homeGames, awayGames] = await Promise.all([
       fetchTeamGames(homeTeam.id),
@@ -226,7 +238,10 @@ export const fetchNBAMatchStats = async (homeTeamName, awayTeamName, homeOdds, a
     const homeB2B = checkBackToBack(homeGames);
     const awayB2B = checkBackToBack(awayGames);
 
-    if (!homeStats || !awayStats) return { available: false };
+    if (!homeStats || !awayStats) {
+      console.log('NBA stats null - homeGames:', homeGames.length, 'awayGames:', awayGames.length);
+      return { available: false };
+    }
 
     // Ajustement de la probabilité estimée basé sur le Net Rating
     const netDiff = homeStats.netRating - awayStats.netRating;
