@@ -7,7 +7,6 @@ import {
   calculateKellyStake,
   calculateGlobalScore,
 } from '../utils/api';
-import { fetchNBAMatchStats } from '../utils/nba';
 
 export const useDashboardData = (bankroll) => {
   const [matches, setMatches] = useState([]);
@@ -15,7 +14,7 @@ export const useDashboardData = (bankroll) => {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const processMatch = useCallback(async (match) => {
+  const processMatch = useCallback((match) => {
     const bookmaker = match.bookmakers?.[0];
     const h2hMarket = bookmaker?.markets?.find(m => m.key === 'h2h');
     const outcomes = h2hMarket?.outcomes || [];
@@ -27,27 +26,13 @@ export const useDashboardData = (bankroll) => {
     const homeImplied = oddsToProb(homeOdds);
     const awayImplied = oddsToProb(awayOdds);
 
-    let nbaStats = null;
-    let confidence = 0.5;
-    let homeEstimated = homeImplied;
-    let formScore = 0.5;
-
-    // Brancher les vraies stats NBA
-    if (match.sportType === 'basketball') {
-      nbaStats = await fetchNBAMatchStats(match.home_team, match.away_team);
-      if (nbaStats?.available) {
-        formScore = nbaStats.homeTeam.form / 100;
-        const fatigueAdj = (nbaStats.homeTeam.backToBack ? -0.05 : 0) - (nbaStats.awayTeam.backToBack ? -0.05 : 0);
-        homeEstimated = Math.min(0.9, Math.max(0.1, homeImplied + nbaStats.formAdvantage * 0.15 + fatigueAdj));
-        confidence = nbaStats.confidence;
-      }
-    } else {
-      // Stats simulées pour foot (en attendant API-Sports)
-      formScore = Math.random() * 0.4 + 0.3;
-      const xgAdv = (Math.random() - 0.5) * 2;
-      homeEstimated = Math.min(0.9, Math.max(0.1, homeImplied + xgAdv * 0.03));
-      confidence = Math.min(0.8, Math.max(0.3, formScore * 0.6 + 0.2));
-    }
+    // Stats simulées pour le score initial (les vraies stats NBA chargent au clic)
+    const formScore = Math.random() * 0.4 + 0.3;
+    const xgAdv = (Math.random() - 0.5) * 2;
+    const homeEstimated = Math.min(0.9, Math.max(0.1,
+      homeImplied + (match.sportType === 'football' ? xgAdv * 0.03 : 0)
+    ));
+    const confidence = Math.min(0.8, Math.max(0.3, formScore * 0.6 + 0.2));
 
     const homeValue = homeOdds ? calculateValue(homeEstimated, homeOdds) : 0;
     const homeKelly = homeOdds ? calculateKellyStake(homeEstimated, homeOdds, bankroll) : null;
@@ -70,7 +55,7 @@ export const useDashboardData = (bankroll) => {
       homeKelly,
       confidence: Math.round(confidence * 100) / 100,
       globalScore,
-      nbaStats,
+      nbaStats: null, // Chargé au clic
       bookmaker: bookmaker?.title || 'Bookmaker',
     };
   }, [bankroll]);
@@ -80,26 +65,23 @@ export const useDashboardData = (bankroll) => {
     setError(null);
     try {
       const oddsData = await fetchAllSportsOdds();
-
-      // Traiter tous les matchs (NBA en parallèle par batch de 5)
-      const processed = [];
-      const batchSize = 5;
-      for (let i = 0; i < oddsData.length; i += batchSize) {
-        const batch = oddsData.slice(i, i + batchSize);
-        const results = await Promise.all(batch.map(m => processMatch(m)));
-        processed.push(...results);
-      }
-
-      const sorted = processed.sort((a, b) => b.globalScore - a.globalScore);
-      setMatches(sorted);
+      const processed = oddsData.map(m => processMatch(m))
+        .sort((a, b) => b.globalScore - a.globalScore);
+      setMatches(processed);
       setLastUpdated(new Date());
     } catch (err) {
       setError('Erreur de chargement. Vérifie ta connexion.');
-      console.error(err);
     } finally {
       setLoading(false);
     }
   }, [processMatch]);
+
+  // Met à jour les stats NBA d'un match spécifique après clic
+  const updateMatchNBAStats = useCallback((matchId, nbaStats) => {
+    setMatches(prev => prev.map(m =>
+      m.id === matchId ? { ...m, nbaStats } : m
+    ));
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -107,5 +89,5 @@ export const useDashboardData = (bankroll) => {
     return () => clearInterval(interval);
   }, [loadData]);
 
-  return { matches, loading, error, lastUpdated, refresh: loadData };
+  return { matches, loading, error, lastUpdated, refresh: loadData, updateMatchNBAStats };
 };
