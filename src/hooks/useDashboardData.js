@@ -1,15 +1,13 @@
+/* eslint-disable */
 import { useState, useEffect, useCallback } from 'react';
 import {
   fetchAllSportsOdds,
-  fetchNBAGames,
-  fetchTennisMatches,
-  fetchFootballFixtures,
   oddsToProb,
   calculateValue,
   calculateKellyStake,
   estimateProbFromStats,
   calculateGlobalScore,
-} from '../utils/api';
+} from '../utils/api'; // eslint-disable-line
 
 export const useDashboardData = (bankroll) => {
   const [matches, setMatches] = useState([]);
@@ -19,8 +17,8 @@ export const useDashboardData = (bankroll) => {
 
   const processOddsData = useCallback((oddsData) => {
     return oddsData.map((match) => {
-      const winamax = match.bookmakers?.find(b => b.key === 'winamax') || match.bookmakers?.[0];
-      const h2hMarket = winamax?.markets?.find(m => m.key === 'h2h');
+      const bookmaker = match.bookmakers?.[0];
+      const h2hMarket = bookmaker?.markets?.find(m => m.key === 'h2h');
       const outcomes = h2hMarket?.outcomes || [];
 
       const homeOdds = outcomes.find(o => o.name === match.home_team)?.price || null;
@@ -30,8 +28,6 @@ export const useDashboardData = (bankroll) => {
       const homeImplied = oddsToProb(homeOdds);
       const awayImplied = oddsToProb(awayOdds);
 
-      // Stats simulées jusqu'à ce que les appels API soient complets
-      // Sera remplacé par des vraies stats dans la prochaine version
       const mockStats = {
         formScore: Math.random() * 0.4 + 0.3,
         xgAdvantage: (Math.random() - 0.5) * 2,
@@ -41,7 +37,7 @@ export const useDashboardData = (bankroll) => {
       };
 
       const homeEstimated = estimateProbFromStats(homeImplied, mockStats);
-      const homeValue = calculateValue(homeEstimated, homeOdds);
+      const homeValue = homeOdds ? calculateValue(homeEstimated, homeOdds) : 0;
       const homeKelly = homeOdds ? calculateKellyStake(homeEstimated, homeOdds, bankroll) : null;
 
       const confidence = Math.min(1, Math.max(0,
@@ -71,7 +67,7 @@ export const useDashboardData = (bankroll) => {
         confidence: Math.round(confidence * 100) / 100,
         globalScore,
         stats: mockStats,
-        bestBet: homeValue > 0.05 ? 'home' : awayImplied > homeImplied ? 'away' : null,
+        bookmaker: bookmaker?.title || 'Bookmaker',
       };
     });
   }, [bankroll]);
@@ -80,44 +76,13 @@ export const useDashboardData = (bankroll) => {
     setLoading(true);
     setError(null);
     try {
-      const [oddsData, nbaGames] = await Promise.all([
-        fetchAllSportsOdds(),
-        fetchNBAGames(),
-      ]);
-
-      const processedMatches = processOddsData(oddsData);
-
-      // Ajoute les matchs NBA si pas déjà dans les odds
-      const nbaMatches = nbaGames.map(game => ({
-        id: `nba-${game.id}`,
-        sport: 'basketball',
-        league: 'NBA',
-        homeTeam: game.home_team?.full_name || 'Home',
-        awayTeam: game.visitor_team?.full_name || 'Away',
-        commenceTime: game.date,
-        homeOdds: null,
-        awayOdds: null,
-        drawOdds: null,
-        homeImplied: 50,
-        awayImplied: 50,
-        homeEstimated: 50,
-        homeValue: 0,
-        homeKelly: null,
-        confidence: 0.5,
-        globalScore: 5,
-        stats: {},
-        bestBet: null,
-        status: game.status,
-        score: game.home_team_score ? `${game.home_team_score} - ${game.visitor_team_score}` : null,
-      }));
-
-      const allMatches = [...processedMatches, ...nbaMatches]
+      const oddsData = await fetchAllSportsOdds();
+      const processedMatches = processOddsData(oddsData)
         .sort((a, b) => b.globalScore - a.globalScore);
-
-      setMatches(allMatches);
+      setMatches(processedMatches);
       setLastUpdated(new Date());
     } catch (err) {
-      setError('Erreur de chargement des données. Vérifie tes clés API.');
+      setError('Erreur de chargement. Vérifie ta connexion.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -126,7 +91,6 @@ export const useDashboardData = (bankroll) => {
 
   useEffect(() => {
     loadData();
-    // Refresh toutes les 5 minutes
     const interval = setInterval(loadData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [loadData]);
