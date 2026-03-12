@@ -79,8 +79,8 @@ const calcAdvancedStats = (games, teamId) => {
     totalPtsFor += ptsFor;
     totalPtsAgainst += ptsAgainst;
 
-    // Estimation possessions : (pts / 2.2) moyenne NBA
-    const possEstimate = (ptsFor + ptsAgainst) / 2 / 2.2;
+    // Estimation possessions NBA : ~1 possession = 1.05 pts (moyenne ligue moderne)
+    const possEstimate = (ptsFor + ptsAgainst) / 2 / 1.05;
     totalPossessions += possEstimate;
 
     const won = ptsFor > ptsAgainst;
@@ -98,8 +98,8 @@ const calcAdvancedStats = (games, teamId) => {
   const defRating = (avgPtsAgainst / avgPoss) * 100;
   const netRating = offRating - defRating;
 
-  // Pace = possessions par match * 2 (aller-retour)
-  const pace = avgPoss * 2;
+  // Pace NBA = possessions par équipe par match (standard NBA)
+  const pace = avgPoss;
 
   return {
     offRating: Math.round(offRating * 10) / 10,
@@ -181,7 +181,7 @@ const generateBetRecommendations = (homeStats, awayStats, homeB2B, awayB2B, home
       type: 'TOTAL',
       label: `OVER ${Math.round(projectedTotal - 5)}`,
       odds: null,
-      confidence: Math.min(80, 50 + (avgPace - 98) * 3),
+      confidence: Math.round(Math.min(80, 50 + (avgPace - 98) * 3)),
       reason: `Pace moyen ${avgPace.toFixed(0)} → match ouvert, ~${Math.round(projectedTotal)} pts projetés`,
       emoji: '📈',
       color: '#00aaff',
@@ -191,7 +191,7 @@ const generateBetRecommendations = (homeStats, awayStats, homeB2B, awayB2B, home
       type: 'TOTAL',
       label: `UNDER ${Math.round(projectedTotal + 5)}`,
       odds: null,
-      confidence: Math.min(75, 50 + (98 - avgPace) * 2),
+      confidence: Math.round(Math.min(75, 50 + (98 - avgPace) * 2)),
       reason: `Pace lent ${avgPace.toFixed(0)} → match fermé, ~${Math.round(projectedTotal)} pts projetés`,
       emoji: '📉',
       color: '#aa44ff',
