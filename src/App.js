@@ -260,7 +260,81 @@ function MatchCard({ match, bankroll }) {
             </div>
           )}
 
-          {match.homeValue <= 0 && (
+          {/* Stats FOOT réelles */}
+          {match.footballStats?.available && (
+            <div style={{ marginTop: "10px" }}>
+              <div style={{ background: "#00ff8806", border: "1px solid #00ff8818", borderRadius: "8px", padding: "12px", marginBottom: "8px" }}>
+                <div style={{ fontSize: "10px", color: "#00ff88", fontFamily: "monospace", fontWeight: 700, marginBottom: "10px", letterSpacing: "1px" }}>
+                  ⚽ STATS LIGUE EN TEMPS RÉEL
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "10px" }}>
+                  {[
+                    { label: "🏠 " + match.footballStats.homeTeam.teamName, stats: match.footballStats.homeTeam },
+                    { label: "✈️ " + match.footballStats.awayTeam.teamName, stats: match.footballStats.awayTeam },
+                  ].map((item, i) => (
+                    <div key={i} style={{ background: "#060613", borderRadius: "6px", padding: "10px", border: "1px solid #1a1a2e" }}>
+                      <div style={{ fontSize: "9px", color: "#555", fontFamily: "monospace", marginBottom: "6px" }}>{item.label}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px", marginBottom: "6px" }}>
+                        {[
+                          { l: "CLASSEMENT", v: item.stats.position + "e", c: item.stats.position <= 4 ? "#00ff88" : item.stats.position <= 10 ? "#ffaa00" : "#ff4466" },
+                          { l: "POINTS", v: item.stats.points, c: "#888" },
+                          { l: "BUT/MATCH", v: item.stats.avgGoalsFor, c: item.stats.avgGoalsFor >= 1.8 ? "#00ff88" : item.stats.avgGoalsFor >= 1.2 ? "#ffaa00" : "#ff4466" },
+                          { l: "ENCAISSÉ", v: item.stats.avgGoalsAgainst, c: item.stats.avgGoalsAgainst <= 1 ? "#00ff88" : item.stats.avgGoalsAgainst <= 1.5 ? "#ffaa00" : "#ff4466" },
+                        ].map((s, j) => (
+                          <div key={j}>
+                            <div style={{ fontSize: "8px", color: "#444", fontFamily: "monospace" }}>{s.l}</div>
+                            <div style={{ fontSize: "13px", fontFamily: "monospace", fontWeight: 700, color: s.c }}>{s.v}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: "11px", fontFamily: "monospace", marginBottom: "2px" }}>
+                        {item.stats.form?.map((r, j) => (
+                          <span key={j} style={{ color: r === "W" ? "#00ff88" : r === "D" ? "#ffaa00" : "#ff4466", marginRight: "3px", fontWeight: 700 }}>{r}</span>
+                        ))}
+                        <span style={{ fontSize: "9px", color: "#444", marginLeft: "4px" }}>{item.stats.winRate}% pts</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+                  {[
+                    { l: "ÉCART CLASSEMENT", v: match.footballStats.positionDiff > 0 ? "DOM +" + match.footballStats.positionDiff : "EXT +" + Math.abs(match.footballStats.positionDiff), c: "#888" },
+                    { l: "TOTAL PROJETÉ", v: match.footballStats.projectedTotal + " buts", c: "#00aaff" },
+                  ].map((item, i) => (
+                    <div key={i} style={{ background: "#060613", borderRadius: "6px", padding: "8px", textAlign: "center", border: "1px solid #1a1a2e" }}>
+                      <div style={{ fontSize: "8px", color: "#444", fontFamily: "monospace", marginBottom: "2px" }}>{item.l}</div>
+                      <div style={{ fontSize: "14px", fontFamily: "monospace", fontWeight: 700, color: item.c }}>{item.v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Paris recommandés foot */}
+              {match.footballStats.bets?.length > 0 && (
+                <div style={{ background: "#00ff8806", border: "1px solid #00ff8818", borderRadius: "8px", padding: "12px", marginBottom: "8px" }}>
+                  <div style={{ fontSize: "10px", color: "#00ff88", fontFamily: "monospace", fontWeight: 700, marginBottom: "8px", letterSpacing: "1px" }}>
+                    🎯 PARIS RECOMMANDÉS
+                  </div>
+                  {match.footballStats.bets.map((bet, i) => (
+                    <div key={i} style={{ background: "#060613", borderRadius: "6px", padding: "10px", border: "1px solid #1a1a2e", marginBottom: "6px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span style={{ fontSize: "14px" }}>{bet.emoji}</span>
+                          <span style={{ fontFamily: "monospace", fontSize: "12px", fontWeight: 700, color: bet.color }}>{bet.label}</span>
+                        </div>
+                        <div style={{ background: bet.color + "20", border: "1px solid " + bet.color + "40", borderRadius: "4px", padding: "2px 8px", fontFamily: "monospace", fontSize: "10px", color: bet.color }}>
+                          {bet.confidence}% confiance
+                        </div>
+                      </div>
+                      <div style={{ fontSize: "10px", color: "#555", fontFamily: "monospace" }}>{bet.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {match.homeValue <= 0 && !match.footballStats?.available && !match.nbaStats?.available && (
             <div style={{ background: "#ff446608", border: "1px solid #ff446620", borderRadius: "8px", padding: "10px", fontFamily: "monospace", fontSize: "11px", color: "#ff4466" }}>
               ⛔ Pas de value détectée — ne pas parier sur ce match
             </div>

@@ -8,6 +8,7 @@ import {
   calculateGlobalScore,
 } from '../utils/api';
 import { fetchNBAMatchStats } from '../utils/nba';
+import { fetchFootballMatchStats } from '../utils/football';
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -36,12 +37,9 @@ export const useDashboardData = (bankroll) => {
         const homeImplied = oddsToProb(homeOdds);
         const awayImplied = oddsToProb(awayOdds);
 
-        // Stats simulées pour le foot
-        const formScore = Math.random() * 0.4 + 0.3;
-        const xgAdv = (Math.random() - 0.5) * 2;
-        const homeEstimated = Math.min(0.9, Math.max(0.1, homeImplied + xgAdv * 0.03));
-        const confidence = Math.min(0.8, Math.max(0.3, formScore * 0.6 + 0.2));
-
+        // Stats de base (seront enrichies pour le foot)
+        const homeEstimated = homeImplied;
+        const confidence = 0.5;
         const homeValue = homeOdds ? calculateValue(homeEstimated, homeOdds) : 0;
         const homeKelly = homeOdds ? calculateKellyStake(homeEstimated, homeOdds, bankroll) : null;
         const globalScore = calculateGlobalScore(homeValue, confidence);
@@ -61,6 +59,7 @@ export const useDashboardData = (bankroll) => {
           homeKelly, confidence: Math.round(confidence * 100) / 100,
           globalScore,
           nbaStats: null,
+          footballStats: null,
           bookmaker: bookmaker?.title || 'Bookmaker',
         };
       });
@@ -70,10 +69,36 @@ export const useDashboardData = (bankroll) => {
       setLastUpdated(new Date());
       setLoading(false);
 
+      // Charger les stats FOOT en arrière-plan (1 req par ligue = max 5 req)
+      const footballMatches2 = baseMatches.filter(m => m.sport === 'football');
+      const leaguesDone = new Set();
+      for (const match of footballMatches2) {
+        if (leaguesDone.has(match.league)) continue; // déjà chargé pour cette ligue
+        leaguesDone.add(match.league);
+        await sleep(300);
+      }
+      // Maintenant enrichir chaque match foot avec les stats
+      for (const match of footballMatches2) {
+        await sleep(200);
+        const footballStats = await fetchFootballMatchStats(match.homeTeam, match.awayTeam, match.league);
+        if (footballStats?.available) {
+          const adj = footballStats.totalAdj || 0;
+          const homeEstimated = Math.min(0.9, Math.max(0.1, (match.homeImplied / 100) + adj));
+          const homeValue = match.homeOdds ? calculateValue(homeEstimated, match.homeOdds) : 0;
+          const homeKelly = match.homeOdds ? calculateKellyStake(homeEstimated, match.homeOdds, bankroll) : null;
+          const globalScore = calculateGlobalScore(homeValue, footballStats.confidence);
+          setMatches(prev => prev.map(m =>
+            m.id === match.id
+              ? { ...m, footballStats, homeEstimated: Math.round(homeEstimated * 100), homeValue: Math.round(homeValue * 100) / 100, homeKelly, confidence: Math.round(footballStats.confidence * 100) / 100, globalScore }
+              : m
+          ));
+        }
+      }
+
       // Charger les stats NBA en arrière-plan
       const nbaMatches = baseMatches.filter(m => m.sport === 'basketball');
       for (const match of nbaMatches) {
-        await sleep(500);
+        await sleep(1000); // 1s entre chaque appel NBA
         const nbaStats = await fetchNBAMatchStats(match.homeTeam, match.awayTeam, match.homeOdds, match.awayOdds);
         
         if (nbaStats?.available) {
@@ -101,6 +126,7 @@ export const useDashboardData = (bankroll) => {
 
   useEffect(() => {
     loadData();
+    // Refresh les cotes toutes les 5min MAIS les stats NBA sont cachées 1h dans nba.js
     const interval = setInterval(loadData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [loadData]);
