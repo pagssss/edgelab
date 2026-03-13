@@ -400,12 +400,28 @@ function KellyCalculator({ bankroll }) {
 }
 
 function BankrollManager({ bankroll, setBankroll }) {
+  const startBankroll = 50;
+  const stopLoss = bankroll * 0.60; // -40%
+  const withdrawalTarget = bankroll * 2; // ×2
+  const toWithdraw = Math.round(withdrawalTarget * 0.25 * 100) / 100;
+  const toKeep = Math.round(withdrawalTarget * 0.75 * 100) / 100;
+  const maxBet = bankroll < 100 ? bankroll * 0.03 : bankroll * 0.05;
+  const progress = Math.min(100, Math.round(((bankroll - startBankroll) / (withdrawalTarget - startBankroll)) * 100));
+  const growthX = Math.round((bankroll / startBankroll) * 10) / 10;
 
-  const stopLoss = bankroll * 0.7;
-  const target = bankroll * 1.2;
+  // Paliers de croissance
+  const milestones = [
+    { label: "Départ", value: 50, reached: bankroll >= 50 },
+    { label: "×2", value: 100, reached: bankroll >= 100 },
+    { label: "×3", value: 150, reached: bankroll >= 150 },
+    { label: "×5", value: 250, reached: bankroll >= 250 },
+    { label: "×10", value: 500, reached: bankroll >= 500 },
+  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+
+      {/* Bankroll actuelle */}
       <div style={{ background: "#0a0a1a", borderRadius: "12px", padding: "20px", border: "1px solid #1e1e3f" }}>
         <div style={{ fontFamily: "monospace", fontSize: "12px", color: "#666", letterSpacing: "2px", marginBottom: "16px", fontWeight: 700 }}>
           💰 MA BANKROLL
@@ -414,433 +430,121 @@ function BankrollManager({ bankroll, setBankroll }) {
           <input
             type="number"
             value={bankroll}
-            onChange={e => setBankroll(Number(e.target.value))}
-            style={{
-              background: "#060613", border: "1px solid #1e1e3f", color: "#00ff88",
-              fontFamily: "monospace", fontSize: "28px", fontWeight: 700,
-              width: "150px", padding: "8px 12px", borderRadius: "8px", textAlign: "right"
-            }}
+            onChange={e => setBankroll(parseFloat(e.target.value) || 0)}
+            style={{ background: "#060613", border: "1px solid #1e1e3f", color: "#00ff88", fontFamily: "monospace", fontSize: "28px", fontWeight: 700, padding: "8px 12px", borderRadius: "8px", width: "160px" }}
           />
-          <span style={{ color: "#00ff88", fontSize: "28px", fontWeight: 700, fontFamily: "monospace" }}>€</span>
+          <span style={{ fontFamily: "monospace", fontSize: "28px", color: "#00ff88", fontWeight: 700 }}>€</span>
+          <div style={{ marginLeft: "8px" }}>
+            <div style={{ fontFamily: "monospace", fontSize: "11px", color: "#555", marginBottom: "2px" }}>CROISSANCE</div>
+            <div style={{ fontFamily: "monospace", fontSize: "22px", fontWeight: 700, color: growthX >= 2 ? "#00ff88" : growthX >= 1.5 ? "#ffaa00" : "#888" }}>×{growthX}</div>
+          </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+
+        {/* Barre de progression vers le prochain retrait */}
+        <div style={{ marginBottom: "8px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+            <span style={{ fontFamily: "monospace", fontSize: "9px", color: "#444" }}>PROGRESSION VERS RETRAIT</span>
+            <span style={{ fontFamily: "monospace", fontSize: "9px", color: "#ffaa00" }}>{bankroll.toFixed(0)}€ / {withdrawalTarget.toFixed(0)}€</span>
+          </div>
+          <div style={{ height: "6px", background: "#1a1a2e", borderRadius: "3px", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${progress}%`, background: progress >= 100 ? "#00ff88" : "linear-gradient(90deg, #ffaa00, #ff8800)", borderRadius: "3px", transition: "width 0.5s ease" }} />
+          </div>
+          <div style={{ textAlign: "right", marginTop: "4px", fontFamily: "monospace", fontSize: "9px", color: "#444" }}>{progress}%</div>
+        </div>
+      </div>
+
+      {/* Stratégie exponentielle */}
+      <div style={{ background: "#0a0a1a", borderRadius: "12px", padding: "20px", border: "1px solid #1e1e3f" }}>
+        <div style={{ fontFamily: "monospace", fontSize: "12px", color: "#666", letterSpacing: "2px", marginBottom: "16px", fontWeight: 700 }}>
+          📈 STRATÉGIE CROISSANCE EXPONENTIELLE
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "12px" }}>
           {[
-            { label: "STOP LOSS (-30%)", value: `${Math.round(stopLoss)}€`, color: "#ff4466" },
-            { label: "OBJECTIF (+20%)", value: `${Math.round(target)}€`, color: "#00ff88" },
-            { label: "MISE MAX (5%)", value: `${Math.round(bankroll * 0.05)}€`, color: "#ffaa00" },
-            { label: "MISE STANDARD (2%)", value: `${Math.round(bankroll * 0.02)}€`, color: "#00aaff" },
+            { l: "RETRAIT À", v: withdrawalTarget.toFixed(0) + "€", sub: "quand bankroll ×2", c: "#ffaa00" },
+            { l: "RETIRER", v: toWithdraw.toFixed(0) + "€", sub: "25% du total", c: "#00ff88" },
+            { l: "GARDER", v: toKeep.toFixed(0) + "€", sub: "75% continue", c: "#00aaff" },
+            { l: "MISE MAX", v: maxBet.toFixed(2) + "€", sub: bankroll < 100 ? "3% (< 100€)" : "5% (> 100€)", c: "#aa44ff" },
           ].map((item, i) => (
-            <div key={i} style={{ background: "#060613", borderRadius: "8px", padding: "10px", border: "1px solid #1e1e3f" }}>
-              <div style={{ fontSize: "9px", color: "#555", fontFamily: "monospace", marginBottom: "4px" }}>{item.label}</div>
-              <div style={{ fontFamily: "monospace", fontSize: "16px", fontWeight: 700, color: item.color }}>{item.value}</div>
+            <div key={i} style={{ background: "#060613", borderRadius: "8px", padding: "12px", border: "1px solid #1a1a2e" }}>
+              <div style={{ fontFamily: "monospace", fontSize: "9px", color: "#444", marginBottom: "4px" }}>{item.l}</div>
+              <div style={{ fontFamily: "monospace", fontSize: "20px", fontWeight: 700, color: item.c, marginBottom: "2px" }}>{item.v}</div>
+              <div style={{ fontFamily: "monospace", fontSize: "9px", color: "#333" }}>{item.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Stop loss */}
+        <div style={{ background: "#ff446608", border: "1px solid #ff446620", borderRadius: "8px", padding: "12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontFamily: "monospace", fontSize: "9px", color: "#ff4466", letterSpacing: "1px", marginBottom: "2px" }}>⛔ STOP-LOSS (-40%)</div>
+              <div style={{ fontFamily: "monospace", fontSize: "18px", fontWeight: 700, color: "#ff4466" }}>{stopLoss.toFixed(0)}€</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: "monospace", fontSize: "9px", color: "#444", marginBottom: "2px" }}>MARGE RESTANTE</div>
+              <div style={{ fontFamily: "monospace", fontSize: "16px", fontWeight: 700, color: bankroll - stopLoss < bankroll * 0.15 ? "#ff4466" : "#888" }}>
+                {(bankroll - stopLoss).toFixed(0)}€
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Paliers de croissance */}
+      <div style={{ background: "#0a0a1a", borderRadius: "12px", padding: "20px", border: "1px solid #1e1e3f" }}>
+        <div style={{ fontFamily: "monospace", fontSize: "12px", color: "#666", letterSpacing: "2px", marginBottom: "16px", fontWeight: 700 }}>
+          🎯 PALIERS DE CROISSANCE
+        </div>
+        <div style={{ position: "relative" }}>
+          {milestones.map((m, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: i < milestones.length - 1 ? "16px" : "0" }}>
+              <div style={{
+                width: "32px", height: "32px", borderRadius: "50%", flexShrink: 0,
+                background: m.reached ? "#00ff8820" : "#1a1a2e",
+                border: `2px solid ${m.reached ? "#00ff88" : "#2a2a4e"}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "monospace", fontSize: "10px", fontWeight: 700,
+                color: m.reached ? "#00ff88" : "#444",
+              }}>
+                {m.reached ? "✓" : (i + 1)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontFamily: "monospace", fontSize: "12px", fontWeight: 700, color: m.reached ? "#00ff88" : "#444" }}>{m.label}</span>
+                  <span style={{ fontFamily: "monospace", fontSize: "12px", color: m.reached ? "#00ff88" : "#333" }}>{m.value}€</span>
+                </div>
+                {m.reached && m.value > startBankroll && (
+                  <div style={{ fontFamily: "monospace", fontSize: "9px", color: "#444", marginTop: "1px" }}>
+                    Retirer {Math.round(m.value * 0.25)}€ → garder {Math.round(m.value * 0.75)}€
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ background: "#0a0a1a", borderRadius: "12px", padding: "20px", border: "1px solid #1e1e3f" }}>
-        <div style={{ fontFamily: "monospace", fontSize: "12px", color: "#666", letterSpacing: "2px", marginBottom: "16px", fontWeight: 700 }}>
+      {/* Règles rappel */}
+      <div style={{ background: "#0a0a1a", borderRadius: "12px", padding: "16px", border: "1px solid #1e1e3f" }}>
+        <div style={{ fontFamily: "monospace", fontSize: "12px", color: "#666", letterSpacing: "2px", marginBottom: "12px", fontWeight: 700 }}>
           📋 RÈGLES D'OR
         </div>
         {[
-          ["⛔", "Ne jamais dépasser 5% de bankroll par pari", "#ff4466"],
-          ["✅", "Parier uniquement si value > 0", "#00ff88"],
-          ["⚡", "Max 3 paris simultanés", "#ffaa00"],
-          ["📊", "Tenir un journal de chaque pari", "#00aaff"],
-          ["🔄", "Retirer 50% si bankroll × 2", "#aa44ff"],
-          ["🛑", "Stop si bankroll -30% sur le mois", "#ff4466"],
-        ].map(([icon, rule, color], i) => (
-          <div key={i} style={{ display: "flex", gap: "10px", alignItems: "flex-start", marginBottom: "10px" }}>
-            <span style={{ fontSize: "14px" }}>{icon}</span>
-            <span style={{ fontFamily: "monospace", fontSize: "11px", color, lineHeight: "1.5" }}>{rule}</span>
+          { e: "📈", t: "Retrait seulement à ×2 de bankroll", c: "#00ff88" },
+          { e: "💸", t: "Retirer 25%, laisser 75% travailler", c: "#00ff88" },
+          { e: "🎯", t: `Mise max ${maxBet.toFixed(2)}€ (${bankroll < 100 ? "3%" : "5%"})`, c: "#ffaa00" },
+          { e: "⛔", t: `Stop-loss à ${stopLoss.toFixed(0)}€ (−40%)`, c: "#ff4466" },
+          { e: "🔒", t: "Max 3 paris simultanés", c: "#888" },
+          { e: "🧠", t: "Parier uniquement score ≥ 6/10", c: "#888" },
+        ].map((r, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+            <span style={{ fontSize: "14px" }}>{r.e}</span>
+            <span style={{ fontFamily: "monospace", fontSize: "11px", color: r.c }}>{r.t}</span>
           </div>
         ))}
       </div>
+
     </div>
   );
 }
 
-// ============================================
-// APP PRINCIPALE
-// ============================================
-export default function App() {
-  const [bankroll, setBankroll] = useState(300);
-  const [activeSport, setActiveSport] = useState("all");
-  const [activeTab, setActiveTab] = useState("matches");
-
-  const { matches, loading, error, lastUpdated, refresh } = useDashboardData(bankroll);
-  const [bets, setBets] = useState([]);
-  const [showAddBet, setShowAddBet] = useState(false);
-  const [newBet, setNewBet] = useState({ match: "", equipe: "", cote: "", mise: "", type: "Moneyline" });
-
-  useEffect(() => { setBets(loadBets()); }, []);
-
-  const handleAddBet = () => {
-    if (!newBet.match || !newBet.equipe || !newBet.cote || !newBet.mise) return;
-    const bet = addBet({ ...newBet, cote: parseFloat(newBet.cote), mise: parseFloat(newBet.mise) });
-    setBets(prev => [bet, ...prev]);
-    setNewBet({ match: "", equipe: "", cote: "", mise: "", type: "Moneyline" });
-    setShowAddBet(false);
-  };
-
-  const handleStatus = (id, status) => {
-    const updated = updateBetStatus(id, status);
-    setBets(updated);
-  };
-
-  const handleDelete = (id) => {
-    const updated = deleteBet(id);
-    setBets(updated);
-  };
-
-  const stats = calcStats(bets);
-
-  const filteredMatches = useMemo(() => {
-    if (activeSport === "all") return matches;
-    return matches.filter(m => m.sport === activeSport);
-  }, [matches, activeSport]);
-
-  const bestBets = useMemo(() =>
-    filteredMatches.filter(m => m.globalScore >= 7).slice(0, 3),
-    [filteredMatches]
-  );
-
-  const sports = [
-    { key: "all", label: "TOUS" },
-    { key: "football", label: "⚽ FOOT" },
-    { key: "tennis", label: "🎾 TENNIS" },
-    { key: "basketball", label: "🏀 BASKET" },
-  ];
-
-  const tabs = ["matches", "kelly", "bankroll", "journal"];
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#060613", color: "#e0e0e0" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #060613; }
-        ::-webkit-scrollbar { width: 3px; }
-        ::-webkit-scrollbar-track { background: #060613; }
-        ::-webkit-scrollbar-thumb { background: #1e1e3f; border-radius: 2px; }
-        @keyframes slideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        input[type=range] { height: 3px; }
-        input[type=number]::-webkit-outer-spin-button,
-        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
-      `}</style>
-
-      {/* HEADER */}
-      <div style={{
-        borderBottom: "1px solid #1a1a2e", padding: "14px 20px",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: "#080814", position: "sticky", top: 0, zIndex: 100,
-      }}>
-        <div>
-          <h1 style={{ fontFamily: "'Bebas Neue', monospace", fontSize: "26px", letterSpacing: "4px" }}>
-            EDGE<GlowText color="#00ff88">LAB</GlowText>
-          </h1>
-          <div style={{ fontSize: "9px", color: "#333", letterSpacing: "3px", fontFamily: "monospace" }}>
-            SPORTS BETTING INTELLIGENCE
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          {lastUpdated && (
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "9px", color: "#333", fontFamily: "monospace" }}>DERNIÈRE MAJ</div>
-              <div style={{ fontSize: "11px", color: "#555", fontFamily: "monospace" }}>
-                {lastUpdated.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </div>
-          )}
-          <button onClick={refresh} disabled={loading} style={{
-            background: "transparent", border: "1px solid #1e1e3f", color: loading ? "#333" : "#666",
-            fontFamily: "monospace", fontSize: "11px", padding: "6px 12px", borderRadius: "6px",
-            cursor: loading ? "not-allowed" : "pointer", letterSpacing: "1px",
-          }}>
-            {loading ? "..." : "↻ REFRESH"}
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <div style={{
-              width: "7px", height: "7px", borderRadius: "50%",
-              background: loading ? "#ffaa00" : "#00ff88",
-              animation: "pulse 2s infinite",
-              boxShadow: `0 0 6px ${loading ? "#ffaa00" : "#00ff88"}`
-            }} />
-            <span style={{ fontSize: "9px", color: loading ? "#ffaa00" : "#00ff88", fontFamily: "monospace", letterSpacing: "1px" }}>
-              {loading ? "CHARGEMENT" : "LIVE"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* SPORT SELECTOR */}
-      <div style={{ padding: "12px 20px", borderBottom: "1px solid #0d0d1e", display: "flex", gap: "6px", flexWrap: "wrap" }}>
-        {sports.map(s => (
-          <button key={s.key} onClick={() => setActiveSport(s.key)} style={{
-            fontFamily: "monospace", fontSize: "11px", fontWeight: 700,
-            padding: "7px 16px", borderRadius: "6px", cursor: "pointer",
-            letterSpacing: "1px", transition: "all 0.15s",
-            background: activeSport === s.key ? "#00ff8812" : "transparent",
-            color: activeSport === s.key ? "#00ff88" : "#444",
-            border: activeSport === s.key ? "1px solid #00ff8830" : "1px solid #1a1a2e",
-          }}>{s.label}</button>
-        ))}
-        <div style={{ marginLeft: "auto", display: "flex", gap: "6px" }}>
-          {tabs.map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              fontFamily: "monospace", fontSize: "11px", fontWeight: 700,
-              padding: "7px 14px", borderRadius: "6px", cursor: "pointer",
-              letterSpacing: "1px", textTransform: "uppercase", transition: "all 0.15s",
-              background: activeTab === tab ? "#ffffff08" : "transparent",
-              color: activeTab === tab ? "#e0e0e0" : "#444",
-              border: activeTab === tab ? "1px solid #2a2a3e" : "1px solid transparent",
-            }}>{tab}</button>
-          ))}
-        </div>
-      </div>
-
-      {/* BEST BETS BANNER */}
-      {bestBets.length > 0 && activeTab === "matches" && (
-        <div style={{ padding: "12px 20px", borderBottom: "1px solid #0d0d1e" }}>
-          <div style={{ fontSize: "9px", color: "#333", fontFamily: "monospace", letterSpacing: "2px", marginBottom: "8px" }}>
-            🔥 MEILLEURS BETS DU MOMENT
-          </div>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            {bestBets.map((m, i) => (
-              <div key={i} style={{
-                background: "#00ff8808", border: "1px solid #00ff8820",
-                borderRadius: "8px", padding: "8px 12px",
-                fontFamily: "monospace", fontSize: "11px",
-              }}>
-                <GlowText color="#00ff88">{m.homeTeam}</GlowText>
-                <span style={{ color: "#444", margin: "0 6px" }}>vs</span>
-                <span style={{ color: "#888" }}>{m.awayTeam}</span>
-                <span style={{ color: "#555", margin: "0 6px" }}>·</span>
-                <GlowText color="#ffaa00">{m.homeOdds}</GlowText>
-                <span style={{ color: "#555", margin: "0 6px" }}>·</span>
-                <GlowText color="#00ff88">{m.globalScore}/10</GlowText>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* CONTENU PRINCIPAL */}
-      <div style={{ padding: "16px 20px", maxWidth: "900px", margin: "0 auto" }}>
-
-        {error && (
-          <div style={{ background: "#ff446610", border: "1px solid #ff446630", borderRadius: "8px", padding: "12px 16px", fontFamily: "monospace", fontSize: "12px", color: "#ff4466", marginBottom: "16px" }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* TAB MATCHS */}
-        {activeTab === "matches" && (
-          <div style={{ animation: "slideIn 0.3s ease" }}>
-            {loading && matches.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 0" }}>
-                <div style={{ fontSize: "30px", animation: "spin 1s linear infinite", display: "inline-block", marginBottom: "12px" }}>⟳</div>
-                <div style={{ fontFamily: "monospace", color: "#444", fontSize: "12px", letterSpacing: "2px" }}>CHARGEMENT DES MATCHS...</div>
-              </div>
-            ) : filteredMatches.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 0" }}>
-                <div style={{ fontSize: "40px", marginBottom: "12px" }}>📭</div>
-                <div style={{ fontFamily: "monospace", color: "#444", fontSize: "12px", letterSpacing: "2px" }}>AUCUN MATCH DISPONIBLE AUJOURD'HUI</div>
-              </div>
-            ) : (
-              <>
-                <div style={{ fontSize: "10px", color: "#333", fontFamily: "monospace", letterSpacing: "2px", marginBottom: "12px" }}>
-                  {filteredMatches.length} MATCH{filteredMatches.length > 1 ? 'S' : ''} · TRIÉS PAR SCORE
-                </div>
-                {filteredMatches.map((match, i) => (
-                  <MatchCard key={match.id || i} match={match} bankroll={bankroll} />
-                ))}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* TAB KELLY */}
-        {activeTab === "kelly" && (
-          <div style={{ animation: "slideIn 0.3s ease" }}>
-            <div style={{ fontSize: "10px", color: "#333", fontFamily: "monospace", letterSpacing: "2px", marginBottom: "16px" }}>
-              CALCULATEUR DE MISE — BANKROLL {bankroll}€
-            </div>
-            <KellyCalculator bankroll={bankroll} />
-          </div>
-        )}
-
-        {/* TAB BANKROLL */}
-        {activeTab === "bankroll" && (
-          <div style={{ animation: "slideIn 0.3s ease" }}>
-            <div style={{ fontSize: "10px", color: "#333", fontFamily: "monospace", letterSpacing: "2px", marginBottom: "16px" }}>
-              GESTION DE BANKROLL
-            </div>
-            <BankrollManager bankroll={bankroll} setBankroll={setBankroll} />
-          </div>
-        )}
-
-        {/* TAB JOURNAL */}
-        {activeTab === "journal" && (
-          <div style={{ animation: "slideIn 0.3s ease" }}>
-
-            {/* Stats globales */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px", marginBottom: "16px" }}>
-              {[
-                { l: "PARIS TOTAL", v: stats.total, c: "#888" },
-                { l: "GAGNÉS", v: stats.won, c: "#00ff88" },
-                { l: "PERDUS", v: stats.lost, c: "#ff4466" },
-                { l: "EN COURS", v: stats.pending, c: "#ffaa00" },
-              ].map((s, i) => (
-                <div key={i} style={{ background: "#0a0a1a", borderRadius: "8px", padding: "12px", textAlign: "center", border: "1px solid #1e1e3f" }}>
-                  <div style={{ fontSize: "9px", color: "#444", fontFamily: "monospace", marginBottom: "4px" }}>{s.l}</div>
-                  <div style={{ fontSize: "22px", fontFamily: "monospace", fontWeight: 700, color: s.c }}>{s.v}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "16px" }}>
-              {[
-                { l: "PROFIT", v: (stats.profit >= 0 ? "+" : "") + stats.profit + "€", c: stats.profit >= 0 ? "#00ff88" : "#ff4466" },
-                { l: "ROI", v: (stats.roi >= 0 ? "+" : "") + stats.roi + "%", c: stats.roi >= 0 ? "#00ff88" : "#ff4466" },
-                { l: "WIN RATE", v: stats.winRate + "%", c: stats.winRate >= 55 ? "#00ff88" : stats.winRate >= 45 ? "#ffaa00" : "#ff4466" },
-              ].map((s, i) => (
-                <div key={i} style={{ background: "#0a0a1a", borderRadius: "8px", padding: "12px", textAlign: "center", border: "1px solid #1e1e3f" }}>
-                  <div style={{ fontSize: "9px", color: "#444", fontFamily: "monospace", marginBottom: "4px" }}>{s.l}</div>
-                  <div style={{ fontSize: "20px", fontFamily: "monospace", fontWeight: 700, color: s.c }}>{s.v}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Bouton ajouter */}
-            <button onClick={() => setShowAddBet(!showAddBet)} style={{
-              width: "100%", padding: "12px", marginBottom: "12px",
-              background: showAddBet ? "#ff446610" : "#00ff8810",
-              border: showAddBet ? "1px solid #ff446630" : "1px solid #00ff8830",
-              color: showAddBet ? "#ff4466" : "#00ff88",
-              fontFamily: "monospace", fontSize: "12px", fontWeight: 700,
-              borderRadius: "8px", cursor: "pointer", letterSpacing: "1px",
-            }}>
-              {showAddBet ? "✕ ANNULER" : "+ AJOUTER UN PARI"}
-            </button>
-
-            {/* Formulaire ajout */}
-            {showAddBet && (
-              <div style={{ background: "#0a0a1a", border: "1px solid #1e1e3f", borderRadius: "10px", padding: "16px", marginBottom: "16px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                  {[
-                    { label: "MATCH", key: "match", placeholder: "Ex: Lakers vs Celtics" },
-                    { label: "ÉQUIPE PARIÉE", key: "equipe", placeholder: "Ex: Lakers" },
-                    { label: "COTE", key: "cote", placeholder: "Ex: 1.85" },
-                    { label: "MISE (€)", key: "mise", placeholder: "Ex: 20" },
-                  ].map((field, i) => (
-                    <div key={i}>
-                      <div style={{ fontSize: "9px", color: "#555", fontFamily: "monospace", marginBottom: "4px" }}>{field.label}</div>
-                      <input
-                        type="text"
-                        placeholder={field.placeholder}
-                        value={newBet[field.key]}
-                        onChange={e => setNewBet(prev => ({ ...prev, [field.key]: e.target.value }))}
-                        style={{
-                          width: "100%", background: "#060613", border: "1px solid #1e1e3f",
-                          color: "#e0e0e0", fontFamily: "monospace", fontSize: "12px",
-                          padding: "8px 10px", borderRadius: "6px",
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div style={{ marginBottom: "10px" }}>
-                  <div style={{ fontSize: "9px", color: "#555", fontFamily: "monospace", marginBottom: "4px" }}>TYPE DE PARI</div>
-                  <div style={{ display: "flex", gap: "6px" }}>
-                    {["Moneyline", "Handicap", "Over", "Under", "B2B Fade"].map(type => (
-                      <button key={type} onClick={() => setNewBet(prev => ({ ...prev, type }))} style={{
-                        padding: "6px 10px", borderRadius: "4px", cursor: "pointer",
-                        fontFamily: "monospace", fontSize: "10px", fontWeight: 700,
-                        background: newBet.type === type ? "#00ff8815" : "transparent",
-                        color: newBet.type === type ? "#00ff88" : "#444",
-                        border: newBet.type === type ? "1px solid #00ff8830" : "1px solid #1a1a2e",
-                      }}>{type}</button>
-                    ))}
-                  </div>
-                </div>
-                <button onClick={handleAddBet} style={{
-                  width: "100%", padding: "10px", background: "#00ff8815",
-                  border: "1px solid #00ff8830", color: "#00ff88",
-                  fontFamily: "monospace", fontSize: "12px", fontWeight: 700,
-                  borderRadius: "6px", cursor: "pointer", letterSpacing: "1px",
-                }}>
-                  ✓ ENREGISTRER LE PARI
-                </button>
-              </div>
-            )}
-
-            {/* Liste des paris */}
-            {bets.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 0", fontFamily: "monospace", color: "#333", fontSize: "12px", letterSpacing: "2px" }}>
-                📋 AUCUN PARI ENREGISTRÉ
-              </div>
-            ) : (
-              bets.map(bet => {
-                const gain = bet.status === 'won' ? Math.round((bet.mise * bet.cote - bet.mise) * 100) / 100 : bet.status === 'lost' ? -bet.mise : null;
-                const statusColor = bet.status === 'won' ? '#00ff88' : bet.status === 'lost' ? '#ff4466' : '#ffaa00';
-                return (
-                  <div key={bet.id} style={{
-                    background: "#0a0a1a", border: `1px solid ${statusColor}22`,
-                    borderLeft: `3px solid ${statusColor}`,
-                    borderRadius: "8px", padding: "14px", marginBottom: "8px",
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-                      <div>
-                        <div style={{ fontFamily: "monospace", fontSize: "13px", fontWeight: 700, color: "#e0e0e0", marginBottom: "2px" }}>
-                          {bet.equipe} <span style={{ color: "#444", fontSize: "11px" }}>— {bet.match}</span>
-                        </div>
-                        <div style={{ display: "flex", gap: "10px" }}>
-                          <span style={{ fontSize: "10px", color: "#555", fontFamily: "monospace" }}>📅 {new Date(bet.date).toLocaleDateString('fr-FR')}</span>
-                          <span style={{ fontSize: "10px", color: "#ffaa00", fontFamily: "monospace" }}>@ {bet.cote}</span>
-                          <span style={{ fontSize: "10px", color: "#888", fontFamily: "monospace" }}>Mise: {bet.mise}€</span>
-                          <span style={{ fontSize: "10px", color: "#555", fontFamily: "monospace" }}>{bet.type}</span>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
-                        {gain !== null && (
-                          <span style={{ fontFamily: "monospace", fontSize: "14px", fontWeight: 700, color: gain >= 0 ? "#00ff88" : "#ff4466" }}>
-                            {gain >= 0 ? "+" : ""}{gain}€
-                          </span>
-                        )}
-                        <span style={{ fontSize: "9px", fontFamily: "monospace", color: statusColor, border: `1px solid ${statusColor}44`, padding: "2px 6px", borderRadius: "3px" }}>
-                          {bet.status === 'won' ? '✓ GAGNÉ' : bet.status === 'lost' ? '✗ PERDU' : '⏳ EN COURS'}
-                        </span>
-                      </div>
-                    </div>
-                    {bet.status === 'pending' && (
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <button onClick={() => handleStatus(bet.id, 'won')} style={{
-                          flex: 1, padding: "6px", background: "#00ff8810", border: "1px solid #00ff8830",
-                          color: "#00ff88", fontFamily: "monospace", fontSize: "10px", fontWeight: 700,
-                          borderRadius: "4px", cursor: "pointer",
-                        }}>✓ GAGNÉ</button>
-                        <button onClick={() => handleStatus(bet.id, 'lost')} style={{
-                          flex: 1, padding: "6px", background: "#ff446610", border: "1px solid #ff446630",
-                          color: "#ff4466", fontFamily: "monospace", fontSize: "10px", fontWeight: 700,
-                          borderRadius: "4px", cursor: "pointer",
-                        }}>✗ PERDU</button>
-                        <button onClick={() => handleDelete(bet.id)} style={{
-                          padding: "6px 10px", background: "transparent", border: "1px solid #1a1a2e",
-                          color: "#333", fontFamily: "monospace", fontSize: "10px",
-                          borderRadius: "4px", cursor: "pointer",
-                        }}>🗑</button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
