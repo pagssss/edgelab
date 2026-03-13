@@ -1,4 +1,4 @@
-/* eslint-disable */
+/* eslint-disable */ // v2
 const API_SPORTS_KEY = process.env.REACT_APP_API_SPORTS_KEY;
 const headers = { 'x-apisports-key': API_SPORTS_KEY };
 

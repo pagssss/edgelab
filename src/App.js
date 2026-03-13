@@ -1,4 +1,4 @@
-/* eslint-disable */
+/* eslint-disable */ // v2
 import { useState, useMemo, useEffect } from "react";
 import { loadBets, addBet, updateBetStatus, deleteBet, calcStats } from "./utils/journal";
 import { useDashboardData } from "./hooks/useDashboardData";
