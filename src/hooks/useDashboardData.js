@@ -126,9 +126,26 @@ export const useDashboardData = (bankroll) => {
 
   useEffect(() => {
     loadData();
-    // Refresh les cotes toutes les 5min MAIS les stats NBA sont cachées 1h dans nba.js
-    const interval = setInterval(loadData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+
+    // Refresh intelligent :
+    // - Toutes les 30min entre 19h et 23h (matchs du soir)
+    // - Toutes les 4h le reste de la journée
+    const smartInterval = () => {
+      const hour = new Date().getHours();
+      const isMatchTime = hour >= 19 && hour < 23;
+      return isMatchTime ? 30 * 60 * 1000 : 4 * 60 * 60 * 1000;
+    };
+
+    let timeout;
+    const scheduleNext = () => {
+      timeout = setTimeout(() => {
+        loadData();
+        scheduleNext();
+      }, smartInterval());
+    };
+    scheduleNext();
+
+    return () => clearTimeout(timeout);
   }, [loadData]);
 
   return { matches, loading, error, lastUpdated, refresh: loadData };
